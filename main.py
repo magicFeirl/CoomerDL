@@ -11,7 +11,7 @@ import requests
 
 
 
-os.environ['HTTP_PROXY'] = os.environ['HTTPS_PROXY'] = 'http://localhost:1081'
+os.environ['HTTP_PROXY'] = os.environ['HTTPS_PROXY'] = 'http://localhost:10809'
 
 
 class APIType(str, Enum):
@@ -22,18 +22,17 @@ class APIType(str, Enum):
 class CoomerDL(object):
     def __init__(self, api_type: APIType) -> None:
         base_url = {
-            APIType.coomer: ('https://coomer.su/api/v1', 'https://n3.coomer.su/data/'),
-            APIType.kemono: ('https://kemono.su/api/v1', 'https://n4.kemono.su/data/')
+            APIType.coomer: ('https://coomer.su/api/v1', 'https://coomer.su/data/'),
+            APIType.kemono: ('https://kemono.su/api/v1', 'https://kemono.su/data/')
         }
 
         self.api_base_url, self.file_base_url = base_url[api_type]
-
+        print(self.file_base_url)
 
     def get_creator_posts(self, service: str, creator_id: str, begin: int=0, end: int=1):
 
         for page in range(begin, end):
             api = f'{self.api_base_url}/{service}/user/{creator_id}'
-            
             result = requests.get(api, params={
                 'o': page * 50
             }).json()
@@ -53,14 +52,20 @@ class CoomerDL(object):
                 yield item
 
     def get_file_urls(self,  **kwargs):
-        mp4list = []
+        filelist = []
 
         for item in self._iter_item(lambda p, d: print(p), **kwargs):
-            for att in item['attachments']:
-                if att['path'].endswith('.mp4'):
-                    mp4list.append(urljoin(self.file_base_url, att['path']))
+            post_id = item['id']
 
-        return mp4list
+            for idx, att in enumerate(item['attachments']):
+                if att['path'].startswith('/'):
+                    att['path'] =  att['path'][1:]
+                    
+                _, ext = os.path.splitext(att['name'])
+
+                filelist.append(urljoin(self.file_base_url, att['path']) + f'?f={post_id}_{idx}{ext}')
+
+        return filelist
     
     def get_links(self, **kwargs):
         def _sort(url: str):
@@ -83,16 +88,17 @@ class CoomerDL(object):
 
         return posts
 
-
+    def rename_files(self, file_urls, source_dir):
+        pass
 
 
 # example code
 # You can download file with aria2 lately
-dl = CoomerDL(APIType.kemono)
+dl = CoomerDL(APIType.coomer)
 # links = dl.get_links(service='fanbox', creator_id='7011890', end=10000)
-urls = dl.get_file_urls(service='fanbox', creator_id='7011390', end=10000)
+urls = dl.get_file_urls(service='fansly', creator_id='349922981390069760', end=10000)
 
-with open('kusorucg.txt', 'w') as f:
+with open('Echikano.txt', 'w') as f:
     f.write(os.linesep.join(urls))
 
 
